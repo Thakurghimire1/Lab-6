@@ -1,0 +1,217 @@
+---
+title: "Homework,Lab#6"
+author: "Thakur Prasad Ghimire"
+date: "10/28/2021"
+output: word_document
+---
+
+
+Study Group members' name
+1. Thakur Prasad Ghimire
+2.Nicholas Alonso 
+3.Bolina Oxilus 
+4.Diep luu 
+5.Joel rosas
+6.Hassan Fayyaz
+
+
+
+```{r}
+load("C:/Homework EcoB2000/homework,lab#6/Household_Pulse_data_v2 (2).RData")
+ load("C:/Homework EcoB2000/homework,lab#6/acs2017_ny_data (1).RData")
+attach(acs2017_ny)
+model_v1 <- lm(INCWAGE ~ AGE)
+model_v2 <- lm(acs2017_ny$INCWAGE ~ acs2017_ny$AGE)
+
+model_v3 <- lm(INCWAGE ~ AGE, data = acs2017_ny)
+summary(model_v3)
+```
+
+```{r}
+load("C:/Homework EcoB2000/homework,lab#6/Household_Pulse_data_v2 (2).RData")
+```
+
+
+#Create the dependent variable vaxx
+
+
+```{r,warnning=FALSE}
+Household_Pulse_data$vaxx <-(Household_Pulse_data$RECVDVACC == "yes got vaxx")
+Household_Pulse_data$vaxx =  as.factor(Household_Pulse_data$vaxx)
+str(Household_Pulse_data$vaxx)
+```
+
+
+#Frequency analysis of vaxx variable
+```{r}
+table(Household_Pulse_data$vaxx)
+```
+
+#count the missing values
+
+
+
+```{r}
+sum(is.na(Household_Pulse_data))
+
+```
+
+#Replace the "NA" and "NA's" with the actual recognized NULL by R then count missing values in the vaxx variab
+
+```{r}
+library(dplyr)
+Household_Pulse_data<-Household_Pulse_data%>% 
+  mutate(RECVDVACC=na_if(vaxx,"NA's"))
+Household_Pulse_data= Household_Pulse_data %>%  mutate(RECVDVACC = na_if(vaxx, "NA"))
+sum(is.na(Household_Pulse_data$vaxx)) 
+```
+
+
+
+
+
+
+#Summary statistics->The "skimr" package was used to calculate the summary statistics of the entire data setas shown below:
+
+```{r}
+library(skimr)
+skim(Household_Pulse_data)
+```
+#The data used for modeling was a subset of the original dataset,the data was filtered based on state and i went with state of Ohio.Then some variables with one level only were dropped top  prevent them from interfering with the models. The following are the variables that were dropped.drop <- c("EST_ST","KIDS_LT5Y","KIDS_5_11Y","KIDS_12_17Y","REGION","ENROLLNONE","CHLDCARE","RSNNOWRKRV","Num_kids_Pub_School","Num_kids_Priv_School","Num_kids_homeschool")
+
+#Frequency statistics of the vaccination variable
+
+
+```{r}
+table(Household_Pulse_data$vaxx)
+
+```
+
+#After generating the vaxx variable and dropping replacing the "NA" string with null to indicate missing  values,the above table function is use to get the frequency disyribution of the vaccinated(TRUE) and the uncaccinated (FALSE)
+
+#Cross tabulation of vaccination and education
+
+
+```{r}
+table(Household_Pulse_data$vaxx,Household_Pulse_data$EEDUC)
+
+```
+# looking the cross tabulation between vaxx and education i found that the more educated person is highly the chances they get vaccinated.See above table.   
+  
+  
+#Summary statistics of vaccination
+
+```{r}
+summary(Household_Pulse_data$vaxx)
+
+```
+
+
+#Subset the data based on state:select Ohio
+
+The "skmir" package was usd to calculate the summary 
+```{r}
+pick_Ohio <- (Household_Pulse_data$EST_ST == "Ohio") 
+df_ohio <- subset(Household_Pulse_data, pick_Ohio)
+dim(df_ohio) #check the dimension of the ohio dataframe
+```
+
+ 
+#drop the variables that have one level or too many levels causing the error in the model
+
+```{r}
+df_ohio = df_ohio[, sapply(df_ohio, nlevels) > 1]
+dim(df_ohio)
+```
+
+```{r}
+drop <- c("EST_ST","KIDS_LT5Y","KIDS_5_11Y","KIDS_12_17Y","REGION","ENROLLNONE","CHLDCARE","RSNNOWRKRV",
+          "Num_kids_Pub_School","Num_kids_Priv_School","Num_kids_homeschool")
+df_ohio = df_ohio[,!(names(df_ohio) %in% drop)]
+dim(df_ohio)
+```
+
+```{r}
+
+library(dplyr)
+
+df_ohio <- df_ohio %>%
+  mutate(vaxx = ifelse(vaxx == "TRUE",1,0))
+table(df_ohio$vaxx)
+
+```
+#split the data in to train and test data
+
+```{r}
+library(caret)
+a <- createDataPartition(df_ohio$vaxx, list=FALSE)
+training <- df_ohio[a,]
+test <- df_ohio[-a,]
+table(training$vaxx)
+table(test$vaxx)
+
+```
+
+
+
+#Logistic regression model
+```{r}
+model_logit1<-glm(vaxx~.,family=binomial,data=training)
+summary(model_logit1)
+```
+# From the result of the logit regression model;there was no feature that have a significant causal relationship with vaxx because all there P-values were greater than 0.05.
+
+```{r}
+plot(model_logit1)
+
+```
+```{r}
+library(stargazer)
+stargazer(model_logit1,type="text")
+
+```
+
+
+
+#probit regression model
+
+```{r}
+myprobit <- glm(vaxx ~., family = binomial(link = "probit"), 
+                data = df_ohio)
+summary(myprobit)
+```
+#  From the results of the probit regression model; there was no feature that have significant causal relationship with vaxx because all the P-values were greater than 0.05.
+
+```{r}
+
+plot(myprobit)
+
+```
+
+```{r}
+library(stargazer)
+stargazer(myprobit,type="text")
+```
+
+
+
+#OLS model
+
+
+```{r}
+myOLS = lm(as.numeric(vaxx)~.,data = df_ohio)
+summary(myOLS)
+
+
+```
+Howerver , the OLS model performed quite well when we use vaxx variable as anumeric variable of 0 and 1.The following variables has significant causal relationship with vaxx because their P-values are less than 0.05 (a statical significant level) 
+.RACEother (P-_value=0.02407)
+.EGINID_BIRTH_female(P_value=0.04057)
+.GENID_DESCRIBEmale(P_value =0.00899)
+.GENID_DESCRIBEtransgender(P_value=0.00899)
+.INCOMEHH$25k-$34.9k(P_value=0.0366)
+
+
+
+
+
